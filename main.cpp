@@ -1,92 +1,149 @@
 // Winter'24
 // Instructor: Diba Mirza
-// Student name: 
-#include <iostream>
-#include <fstream>
-#include <string>
-#include <ctime>
-#include <vector>
-#include <cstring>
+// Student name:
 #include <algorithm>
-#include <limits.h>
+#include <cstring>
+#include <ctime>
+#include <fstream>
 #include <iomanip>
-#include <set>
+#include <iostream>
+#include <limits.h>
 #include <queue>
 #include <sstream>
+#include <string>
+#include <vector>
 using namespace std;
 
-#include "utilities.h"
 #include "movies.h"
+#include "utilities.h"
 
-bool parseLine(string &line, string &movieName, double &movieRating);
-
-int main(int argc, char** argv){
-    if (argc < 2){
-        cerr << "Not enough arguments provided (need at least 1 argument)." << endl;
-        cerr << "Usage: " << argv[ 0 ] << " moviesFilename prefixFilename " << endl;
+int main(int argc, char **argv) {
+    if (argc < 2) {
+        cerr << "Not enough arguments provided (need at least 1 argument)."
+             << endl;
+        cerr << "Usage: " << argv[0] << " moviesFilename prefixFilename "
+             << endl;
         exit(1);
     }
 
-    ifstream movieFile (argv[1]);
- 
-    if (movieFile.fail()){
+    ifstream movieFile(argv[1]);
+
+    if (movieFile.fail()) {
         cerr << "Could not open file " << argv[1];
         exit(1);
     }
-  
-    // Create an object of a STL data-structure to store all the movies
 
-    string line, movieName;
-    double movieRating;
-    // Read each file and store the name and rating
-    while (getline (movieFile, line) && parseLine(line, movieName, movieRating)){
-            // Use std::string movieName and double movieRating
-            // to construct your Movie objects
-            // cout << movieName << " has rating " << movieRating << endl;
-            // insert elements into your data structure
-    }
+    vector<Movie> movies = parse_movies(movieFile);
+    sort(movies.begin(), movies.end(), [](const Movie &a, const Movie &b) {
+        return a.name < b.name;
+    });
 
     movieFile.close();
 
-    if (argc == 2){
-            //print all the movies in ascending alphabetical order of movie names
-            return 0;
+    if (argc == 2) {
+        for (const auto &m : movies) {
+            cout << m.name << ", " << m.rating << endl;
+        }
+        return 0;
     }
 
-    ifstream prefixFile (argv[2]);
+    ifstream prefixFile(argv[2]);
 
     if (prefixFile.fail()) {
         cerr << "Could not open file " << argv[2];
         exit(1);
     }
 
-    vector<string> prefixes;
-    while (getline (prefixFile, line)) {
-        if (!line.empty()) {
-            prefixes.push_back(line);
+    vector<string> prefixes = parse_prefixes(prefixFile);
+
+    ostringstream oss;
+    for (const auto &p : prefixes) {
+        vector<Movie> filtered = filter_by_prefix(movies, p);
+        if (filtered.empty()) {
+            cout << "No movies found with prefix " << p << endl;
+            continue;
         }
+        priority_queue<Movie, vector<Movie>, Movie::Ordering::Rating> pq;
+        for (const auto &m : filtered) {
+            pq.push(m);
+        }
+        Movie best = pq.top();
+        oss << "Best movie with prefix " << p << " is: " << best.name
+            << " with rating " << std::fixed << std::setprecision(1)
+            << best.rating << endl;
+        while (!pq.empty()) {
+            Movie m = pq.top();
+            cout << m.name << ", " << m.rating << endl;
+            pq.pop();
+        }
+        cout << endl;
     }
-
-    //  For each prefix,
-    //  Find all movies that have that prefix and store them in an appropriate data structure
-    //  If no movie with that prefix exists print the following message
-    cout << "No movies found with prefix "<<"<replace with prefix>" << endl;
-
-    //  For each prefix,
-    //  Print the highest rated movie with that prefix if it exists.
-    cout << "Best movie with prefix " << "<replace with prefix>" << " is: " << "replace with movie name" << " with rating " << std::fixed << std::setprecision(1) << "replace with movie rating" << endl;
-
+    cout << oss.str();
     return 0;
 }
 
-/* Add your run time analysis for part 3 of the assignment here as commented block*/
+/*
+PART 3 (a)
 
-bool parseLine(string &line, string &movieName, double &movieRating) {
-    int commaIndex = line.find_last_of(",");
-    movieName = line.substr(0, commaIndex);
-    movieRating = stod(line.substr(commaIndex+1));
-    if (movieName[0] == '\"') {
-        movieName = movieName.substr(1, movieName.length() - 2);
-    }
-    return true;
-}
+Time Complexity
+n movies
+m prefixes
+k with each prefix
+l characters in a name
+
+Sort:
+    n*l*log(n) comparisons
+Outer for loop:
+    m iterations
+Filter:
+    l*log(n) per prefix (because binary search)
+Queue pushes:
+    k O(l log k) pushes
+Queue pops:
+    k O(l log k) pops
+
+The total expression is:
+nl(log n) + m [l*log(n) + (k*l*log k) + (k*l*log k)]
+nl(log n) + ml(log n) + 2mkl(log k)
+
+Final Time Complexity:
+O(nl(log n) + ml(log n) + mkl(log k))
+*/
+
+/*
+PART 3 (b)
+
+Space Complexity
+n movies
+m prefixes
+k with each prefix
+l characters in a name
+
+filtered:
+    k movies with l chars
+    k*l
+pq:
+    k movies with l chars
+    k*l
+
+The filtered and pq objects are deallocated after each loop,
+which means that there does not have to be an m factor
+
+The space complexity expression is
+(k*l) + (k*l)
+2(k*l)
+
+Final space complexity:
+O(kl)
+*/
+
+/*
+PART 3 (c)
+
+If you designed your algorithm for a low time complexity,
+Were you able to achieve a low space complexity as well?
+    Yes
+Why or why not?
+    It achieved a low space complexity by accident. The solution just happens
+    to only take up O(kl) space.
+*/
